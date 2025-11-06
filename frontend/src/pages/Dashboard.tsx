@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import { Calendar, Clock, Plus, Trash2 } from 'lucide-react';
+import '../styles/SlotSwapper.css';
 
 interface Event {
   id: number;
@@ -35,9 +36,8 @@ export default function Dashboard() {
     e.preventDefault();
     setErrorMsg('');
 
-    // Basic client-side validation
     if (!form.title || !form.start_time || !form.end_time) {
-      setErrorMsg('Please fill all required fields: title, start and end time.');
+      setErrorMsg('Please fill all required fields.');
       return;
     }
 
@@ -45,7 +45,7 @@ export default function Dashboard() {
     const end = new Date(form.end_time);
 
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      setErrorMsg('Invalid date format. Please enter valid start and end times.');
+      setErrorMsg('Invalid date format.');
       return;
     }
 
@@ -54,14 +54,13 @@ export default function Dashboard() {
       return;
     }
 
-    // optional duration check (matches backend min/max defaults)
     const durationMinutes = (end.getTime() - start.getTime()) / 60000;
     if (durationMinutes < 15) {
       setErrorMsg('Event duration must be at least 15 minutes.');
       return;
     }
     if (durationMinutes > 24 * 60) {
-      setErrorMsg('Event duration seems too long.');
+      setErrorMsg('Event duration cannot exceed 24 hours.');
       return;
     }
 
@@ -77,10 +76,8 @@ export default function Dashboard() {
       setShowForm(false);
     } catch (err: any) {
       console.error('Failed to create event:', err);
-      // Log server response body if available to help debugging
       if (err?.response?.data) {
         console.error('Server error data:', err.response.data);
-        // Try to display a friendly message from server. FastAPI returns {detail: ...}
         const detail = err.response.data.detail ?? err.response.data;
         if (typeof detail === 'string') setErrorMsg(detail);
         else if (detail?.message) setErrorMsg(detail.message);
@@ -100,124 +97,98 @@ export default function Dashboard() {
     }
   };
 
-  const deleteEvent = async (id: number) => {
+  const deleteEvent = async (event: Event) => {
     if (!confirm('Are you sure you want to delete this event?')) return;
     try {
-      await api.delete(`/events/${id}`);
+      await api.delete(`/events/${event.id}`);
       queryClient.invalidateQueries({ queryKey: ['events'] });
     } catch (error) {
       console.error('Failed to delete event:', error);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'BUSY':
-        return 'bg-slate-100/80 text-slate-700 ring-1 ring-slate-700/10';
-      case 'SWAPPABLE':
-        return 'bg-green-100/80 text-green-700 ring-1 ring-green-700/20';
-      case 'SWAP_PENDING':
-        return 'bg-yellow-100/80 text-yellow-700 ring-1 ring-yellow-700/20';
-      default:
-        return 'bg-slate-100/80 text-slate-700 ring-1 ring-slate-700/10';
-    }
-  };
-
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="flex items-center gap-3 text-slate-600">
-          <div className="w-5 h-5 border-2 border-current border-t-transparent animate-spin rounded-full"></div>
-          Loading your events...
-        </div>
+      <div className="slot-swapper">
+        <div className="loading-spinner" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">My Events</h1>
-          <p className="mt-2 text-slate-600 max-w-2xl">
-            Manage your schedule and make slots available for swapping with other users. Keep track of your busy and swappable time slots.
-          </p>
-        </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="inline-flex items-center px-4 py-2.5 rounded-lg font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/20 transition-all"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          New Event
+    <div className="slot-swapper">
+      <div className="page-header">
+        <h1 className="page-title">Schedule Manager</h1>
+        <p className="page-description">
+          Smart scheduling and slot swapping made simple
+        </p>
+      </div>
+
+      <div className="text-right mb-8">
+        <button onClick={() => setShowForm(!showForm)} className="create-button">
+          <Plus className="w-5 h-5" />
+          Create Event
         </button>
       </div>
 
       {showForm && (
-        <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-xl border border-slate-200/50 p-8">
-          <h2 className="text-2xl font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-6">Create New Event</h2>
+        <div className="event-form">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">New Event</h2>
           <form onSubmit={handleSubmit} className="space-y-6">
             {errorMsg && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+              <div className="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-lg">
                 {errorMsg}
               </div>
             )}
+
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Event Title
               </label>
               <input
-                id="title"
                 type="text"
-                required
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                className="form-input"
                 placeholder="Enter event title"
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="start" className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Start Time
                 </label>
                 <input
-                  id="start"
                   type="datetime-local"
-                  required
                   value={form.start_time}
                   onChange={(e) => setForm({ ...form, start_time: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="form-input"
                 />
               </div>
 
               <div>
-                <label htmlFor="end" className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   End Time
                 </label>
                 <input
-                  id="end"
                   type="datetime-local"
-                  required
                   value={form.end_time}
                   onChange={(e) => setForm({ ...form, end_time: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="form-input"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end space-x-4">
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-900 transition-all"
+                className="action-button bg-gray-50 text-gray-700 hover:bg-gray-100"
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                className="px-4 py-2.5 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/20 transition-all"
-              >
+              <button type="submit" className="create-button">
                 Create Event
               </button>
             </div>
@@ -226,61 +197,57 @@ export default function Dashboard() {
       )}
 
       {events.length === 0 ? (
-        <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-xl border border-slate-200/50 p-16 text-center">
-          <div className="flex items-center justify-center w-20 h-20 mx-auto mb-6 bg-slate-50 rounded-2xl">
-            <Calendar className="w-10 h-10 text-slate-400" />
-          </div>
-          <h3 className="text-xl font-semibold text-slate-900 mb-3">No events yet</h3>
-          <p className="text-slate-600 max-w-sm mx-auto">
-            Create your first event to start managing your schedule and make slots available for swapping.
-          </p>
+        <div className="empty-state">
+          <Calendar className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Events Yet</h3>
+          <p className="text-gray-600">Create your first event to start managing your schedule</p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="space-y-4 max-w-3xl mx-auto">
           {events.map((event) => (
-            <div
-              key={event.id}
-              className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200/50 p-6 hover:shadow-xl transition-all"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="text-lg font-semibold text-slate-900">{event.title}</h3>
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                        event.status
-                      )}`}
-                    >
-                      {event.status}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center text-sm text-slate-600 space-x-4">
-                    <div className="flex items-center">
-                      <Clock className="w-4 h-4 mr-1" />
-                      {new Date(event.start_time).toLocaleString()}
+            <div key={event.id} className="event-card">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="event-title">{event.title}</h3>
+                  <div className="space-y-1">
+                    <div className="event-time">
+                      <Calendar className="w-4 h-4" />
+                      {new Date(event.start_time).toLocaleDateString()}
                     </div>
-                    <span>→</span>
-                    <div>{new Date(event.end_time).toLocaleString()}</div>
+                    <div className="event-time">
+                      <Clock className="w-4 h-4" />
+                      {new Date(event.start_time).toLocaleTimeString()} -{' '}
+                      {new Date(event.end_time).toLocaleTimeString()}
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  {event.status === 'BUSY' && (
-                    <button
-                      onClick={() => makeSwappable(event)}
-                      className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50/80 border border-green-200/50 rounded-lg hover:bg-green-100/80 hover:shadow-md shadow-green-500/10 transition-all"
-                    >
-                      Make Swappable
-                    </button>
-                  )}
-                  <button
-                    onClick={() => deleteEvent(event.id)}
-                    className="p-2.5 text-red-600 hover:bg-red-50/80 rounded-lg transition-all hover:shadow-md shadow-red-500/10"
-                    title="Delete event"
+                <div className="flex items-center space-x-4">
+                  <span
+                    className={`status-badge ${
+                      event.status === 'BUSY' ? 'status-busy' : 'status-swappable'
+                    }`}
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    {event.status}
+                  </span>
+
+                  <div className="flex items-center space-x-2">
+                    {event.status === 'BUSY' && (
+                      <button
+                        onClick={() => makeSwappable(event)}
+                        className="action-button action-swap"
+                      >
+                        Make Swappable
+                      </button>
+                    )}
+                    <button
+                      onClick={() => deleteEvent(event)}
+                      className="action-button action-delete"
+                      title="Delete event"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
