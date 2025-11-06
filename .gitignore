@@ -1,0 +1,44 @@
+# ⚠️ SECURITY: Never commit these files
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+slotswapper.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Node/Frontend
+node_modules/
+dist/
+build/
+.cache/
+
+# Logs
+*.log
+logs/
+
+# OS
+Thumbs.db
+.DS_Store
